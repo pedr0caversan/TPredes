@@ -48,13 +48,11 @@ int main(int argc, char *argv[])
 
 
     // Começo da conexão a seguir
-    char addrstr[BUFSZ]; // para imprimir o endereço IP
-    addr_to_str(addr, addrstr, BUFSZ);
-    printf("connected to %s\n", addrstr);
+    printf("Conectado ao servidor.\n");
 
     char buf[BUFSZ];
     memset(buf, 0, BUFSZ);
-    printf("mensagem> ");
+    printf("Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n");
     fgets(buf, BUFSZ - 1, stdin);
     size_t count = send(sockt, buf, strlen(buf) + 1, 0);
     if (count != strlen(buf) + 1)

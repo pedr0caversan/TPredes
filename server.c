@@ -12,6 +12,12 @@
 
 #define BUFSZ 1024
 
+//para teste:
+// ./server v4 5151
+// ./server v6 5151
+// ./client 127.0.0.1 5151
+// ./client ::1 5151
+
 // Comunica erro na inserção do IP e porta do servidor, exibe mensagem de uso correto e encerra o programa
 void usage_error(int argc, char **argv)
 {
@@ -30,16 +36,21 @@ void *client_thread(void *data) {
     struct client_data *c_data = (struct client_data *)data;
     struct sockaddr *client_addr = (struct sockaddr *)(&c_data->storage);
 
-    char caddrstr[BUFSZ];
-    addr_to_str(client_addr, caddrstr, BUFSZ);
-    printf("[log] connection from %s\n", caddrstr);
+    char c_addrstr[BUFSZ];
+    addr_to_str(client_addr, c_addrstr, BUFSZ);
+    printf("Cliente conectado. \n");
 
     char buf[BUFSZ];
     memset(buf, 0, BUFSZ);
     size_t count = recv(c_data->client_sockt, buf, BUFSZ - 1, 0);
-    printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
+    srand(time(NULL));
+    int client_atk = atoi(buf); // Converte a string recebida para inteiro
+    int server_atk = rand() % 5; // Escolha aleatória do servidor entre 0 e 4
+    //printf("[msg] %s, %d bytes: %s\n", c_addrstr, (int)count, buf);
+    printf("Apresentando as opções para o cliente.\nCliente escolheu %d.", client_atk);
+    printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
 
-    sprintf(buf, "remote endpoint: %.1000s\n", caddrstr); // Limite de 1000 caracteres para evitar buffer overflow
+    sprintf(buf, "remote endpoint: %.1000s\n", c_addrstr); // Limite de 1000 caracteres para evitar buffer overflow
     count = send(c_data->client_sockt, buf, strlen(buf) + 1, 0);
     if (count != strlen(buf) + 1) {
         fatal_error("send");
@@ -48,6 +59,24 @@ void *client_thread(void *data) {
     close(c_data->client_sockt);
 
     pthread_exit(EXIT_SUCCESS);
+}
+
+int return_result(int client_atk, int server_atk) {
+    if (client_atk == server_atk) {
+        return -1; // Empate
+    } else if (client_atk == 0 && (server_atk == 2 || server_atk == 3)) {
+        return 1; // nuclear attack ganha de cyber attack e drone strike
+    } else if (client_atk == 1 && (server_atk == 0 || server_atk == 4)) {
+        return 1; // intercept attack ganha de nuclear attack e bio attack
+    } else if (client_atk == 2 && (server_atk == 1 || server_atk == 3)) {
+        return 1; // cyber attack ganha de intercept attack e drone strike
+    } else if (client_atk == 3 && (server_atk == 1 || server_atk == 4)) {
+        return 1; // drone strike ganha de intercept attack e bio attack
+    } else if (client_atk == 4 && (server_atk == 0 || server_atk == 2)) {
+        return 1; // bio attack ganha de nuclear attack e cyber attack
+    
+    return 0; // Caso contrário, derrota do cliente
+    }
 }
 
 
@@ -88,8 +117,11 @@ int main(int argc, char **argv)
     }
 
     char addrstr[BUFSZ];
-    addr_to_str(addr, addrstr, BUFSZ);
-    printf("bound to %s, waiting connections\n", addrstr);
+    // addr_to_str(addr, addrstr, BUFSZ);
+    // printf(" %s \n", addrstr);
+    struct connection_data server_data;
+    server_data = return_connection_data(addr, addrstr, BUFSZ);
+    printf("Servidor iniciado em modo IPv%d na porta %hu. Aguardando conexão...\n", server_data.version, server_data.port);
 
 while (1) {
     struct sockaddr_storage cstorage;

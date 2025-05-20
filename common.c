@@ -7,6 +7,13 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+struct connection_data
+{
+    int version;
+    char addr_str[INET6_ADDRSTRLEN + 1];
+    uint16_t port;
+};
+
 // Comunica erro fatal e tipo de erro por meio de msg e encerra o programa
 void fatal_error(const char *msg)
 {
@@ -89,6 +96,7 @@ int server_sockaddr_init(const char *proto, const char *portstr, struct sockaddr
     }
 }
 
+
 // responsável por converter um endereço IP em uma string.
 void addr_to_str(const struct sockaddr *addr, char *str, size_t strsize)
 {
@@ -133,3 +141,42 @@ void addr_to_str(const struct sockaddr *addr, char *str, size_t strsize)
 //  sockaddr_in: é uma estrutura específica para endereços IPv4. Ela contém campos como sin_family (família do endereço), sin_port (porta) e sin_addr (endereço IP).
 //  sockaddr_in6: é uma estrutura específica para endereços IPv6. Same: sin_family, sin6_port e sin6_addr
 //  sockaddr_storage: é uma estrutura que pode armazenar endereços de diferentes tamanhos, como IPv4 e IPv6. Ela é útil para garantir que o espaço necessário para o endereço seja alocado corretamente, independentemente do tipo de endereço usado.
+
+// devolve um struct contendo informações sobre a conexão: versão do IP, endereço e porta.
+
+
+struct connection_data return_connection_data(const struct sockaddr *addr, char *str, size_t strsize)
+{
+    struct connection_data data = {0};
+    char addrstr[INET6_ADDRSTRLEN + 1] = "";
+
+    if (addr->sa_family == AF_INET)
+    {
+        data.version = 4;
+        struct sockaddr_in *addr4 = (struct sockaddr_in *)addr; // addr4 é um ponteiro que aponta para o mesmo lugar que addr, lugar este que é interpretado comm sendo do tipo sockaddr_in (IPv4)
+        if (!inet_ntop(AF_INET, &(addr4->sin_addr), addrstr, INET6_ADDRSTRLEN + 1))
+        {
+            fatal_error("ntop");
+        }
+        data.port = ntohs(addr4->sin_port); // network to host short
+    }
+    else if (addr->sa_family == AF_INET6)
+    {
+        data.version = 6;
+        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+        if (!inet_ntop(AF_INET6, &(addr6->sin6_addr), addrstr,
+                       INET6_ADDRSTRLEN + 1))
+        {
+            fatal_error("ntop");
+        }
+        data.port = ntohs(addr6->sin6_port); // network to host short
+    }
+    else
+    {
+        fatal_error("unknown protocol family.");
+    }
+
+    snprintf(data.addr_str, sizeof(data.addr_str), "%s", addrstr);
+
+    return data;
+}
