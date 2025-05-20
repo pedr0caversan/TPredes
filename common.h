@@ -7,14 +7,38 @@
 #include <sys/socket.h>  
 #include <arpa/inet.h>
 
+#define MSG_SIZE 256
+#define BUFSZ 1024
+
+
+typedef enum {
+MSG_REQUEST,
+MSG_RESPONSE,
+MSG_RESULT,
+MSG_PLAY_AGAIN_REQUEST,
+MSG_PLAY_AGAIN_RESPONSE,
+MSG_ERROR,
+MSG_END
+} MessageType;
+
+typedef struct {
+int type; // Tipo da mensagem
+int client_action;
+int server_action;
+int result;
+int client_wins;
+int server_wins;
+char message[MSG_SIZE];
+} GameMessage;
+
 
 // Armazena dados de conexão: versão do IP, endereço e porta
-struct connection_data
+typedef struct
 {
     int version;
     char addr_str[INET6_ADDRSTRLEN + 1];
     uint16_t port;
-};
+} connection_data;
 
 // Comunica erro fatal e tipo de erro por meio de msg e encerra o programa
 void fatal_error(const char *msg);
@@ -26,7 +50,7 @@ int addr_parse(const char *addrstr, const char *portstr, struct sockaddr_storage
 int server_sockaddr_init(const char *proto, const char *portstr, struct sockaddr_storage *storage);
 
 // devolve um struct contendo informações sobre a conexão: versão do IP, endereço e porta.
-struct connection_data return_connection_data(const struct sockaddr *addr, char *str, size_t strsize);
+connection_data return_connection_data(const struct sockaddr *addr, char *str, size_t strsize);
 
 // Converte sockaddr para string legível (IPv4/IPv6 + endereço + porta)
 void addr_to_str(const struct sockaddr *addr, char *str, size_t strsize);

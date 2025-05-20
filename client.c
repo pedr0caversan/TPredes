@@ -9,8 +9,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define BUFSZ 1024
-#define MSG_SIZE 256
 
 // Comunica erro na inserção do IP e porta do servidor, exibe mensagem de uso correto e encerra o programa
 void usage_error(char argc, char *argv[])
@@ -29,7 +27,7 @@ int main(int argc, char *argv[])
         usage_error(argc, argv);
     }
 
-     struct sockaddr_storage storage; // storage para IPv4 e IPv6
+    struct sockaddr_storage storage; // storage para IPv4 e IPv6
     if (0 != addr_parse(argv[1], argv[2], &storage)) {
         usage_error(argc, argv);
     }

@@ -10,8 +10,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define BUFSZ 1024
-
 //para teste:
 // ./server v4 5151
 // ./server v6 5151
@@ -74,9 +72,8 @@ int return_result(int client_atk, int server_atk) {
         return 1; // drone strike ganha de intercept attack e bio attack
     } else if (client_atk == 4 && (server_atk == 0 || server_atk == 2)) {
         return 1; // bio attack ganha de nuclear attack e cyber attack
-    
-    return 0; // Caso contrário, derrota do cliente
     }
+    return 0; // Caso contrário, derrota do cliente
 }
 
 
@@ -119,7 +116,7 @@ int main(int argc, char **argv)
     char addrstr[BUFSZ];
     // addr_to_str(addr, addrstr, BUFSZ);
     // printf(" %s \n", addrstr);
-    struct connection_data server_data;
+    connection_data server_data;
     server_data = return_connection_data(addr, addrstr, BUFSZ);
     printf("Servidor iniciado em modo IPv%d na porta %hu. Aguardando conexão...\n", server_data.version, server_data.port);
 
