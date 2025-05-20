@@ -48,9 +48,12 @@ int main(int argc, char *argv[])
     // Começo da conexão a seguir
     printf("Conectado ao servidor.\n");
 
+    char server_msg[BUFSZ];
+    memset(server_msg, 0, BUFSZ);
+    recv(sockt, server_msg, BUFSZ - 1, 0);
+    printf("%s", server_msg);
     char buf[BUFSZ];
-    memset(buf, 0, BUFSZ);
-    printf("Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n");
+    //printf("Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n");
     fgets(buf, BUFSZ - 1, stdin);
     size_t count = send(sockt, buf, strlen(buf) + 1, 0);
     if (count != strlen(buf) + 1)
