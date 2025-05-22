@@ -82,27 +82,17 @@ int main(int argc, char *argv[])
             {
                 msg_to_server.type = MSG_PLAY_AGAIN_RESPONSE;
             }
-
-            // envia msg para o servidor
-            byte_count = send(sockt, &msg_to_server, sizeof(msg_to_server), 0);
-            if (byte_count == -1)
-            {
-                fatal_error("Erro ao enviar mensagem.");
-            }
         } 
         else
         {
             msg_to_server.type = MSG_RESPONSE;
         }
+        // envia msg para o servidor
+        byte_count = send(sockt, &msg_to_server, sizeof(msg_to_server), 0);
+        if (byte_count == -1) {
+            fatal_error("Erro ao enviar mensagem para o servidor.");
+        }
     }
-
-    // char buf[BUFSZ];
-    // memset(buf, 0, BUFSZ);
-    // unsigned total = 0;
-
-    // printf("received %u bytes\n", total);
-    // puts(buf);
-
     exit(EXIT_SUCCESS);
 }
 

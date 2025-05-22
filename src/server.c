@@ -161,16 +161,15 @@ int main(int argc, char **argv)
         break;
       }
 
-      if(msg_to_client.type == MSG_END) {
-        break;
-      }
-      else if (!(msg_to_client.type == MSG_RESULT))
-      {
-        if (-1 == recv(client_sockt, &msg_from_client, sizeof(msg_from_client), 0))
+      if (-1 == recv(client_sockt, &msg_from_client, sizeof(msg_from_client), 0))
         {
           fatal_error("Erro ao receber mensagem do cliente.");
         }
+
+      if(msg_to_client.type == MSG_END) {
+        break;
       }
+
       else
       {
         msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
@@ -180,7 +179,7 @@ int main(int argc, char **argv)
       switch (msg_from_client.type)
       {
       case (MSG_RESPONSE):
-        // msg_to_client.type = MSG_RESULT;
+        //msg_to_client.type = MSG_RESULT;
         msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
         srand(time(NULL));
         client_atk = msg_from_client.client_action;
@@ -193,6 +192,7 @@ int main(int argc, char **argv)
         if (msg_to_client.result == -1)
         {
           printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
+          msg_to_client.type = MSG_REQUEST;
         }
         else
         {
