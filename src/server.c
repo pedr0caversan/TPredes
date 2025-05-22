@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -110,11 +111,13 @@ int main(int argc, char **argv)
 
     GameMessage msg_to_client = {0};
     GameMessage msg_from_client = {0};
+    msg_from_client.type = MSG_RESPONSE;
     msg_to_client.type = MSG_REQUEST;
     int client_atk = 0;
     int server_atk = 0;
     char *attacks[] = {"Nuclear Attack", "Intercept Attack", "Cyber Attack", "Drone Strike", "Bio Attack"};
     char *result_str[] = {"Empate", "Derrota", "Vitória"};
+    bool empate = 0;
 
     // loop de envios e recebimentos de mensagens
     while (1)
@@ -122,7 +125,7 @@ int main(int argc, char **argv)
       char buf[BUFSZ];
       memset(buf, 0, BUFSZ);
 
-      //printf("Tipo da mensagem enviada pro cliente: %d\n", msg_to_client.type);
+      // printf("Tipo da mensagem enviada pro cliente: %d\n", msg_to_client.type);
       switch (msg_to_client.type)
       {
       case (MSG_REQUEST):
@@ -144,12 +147,12 @@ int main(int argc, char **argv)
         break;
       case (MSG_PLAY_AGAIN_REQUEST):
         snprintf(msg_to_client.message, MSG_SIZE, "Deseja jogar novamente?\n1 - Sim\n0 - Não\n");
-        snprintf(msg_to_client.message, MSG_SIZE, "Você escolheu: %s \nServidor escolheu: %s\nResultado: %s!\nDeseja jogar novamente?\n1 - Sim\n0 - Não\n", attacks[client_atk], attacks[server_atk], result_str[msg_to_client.result + 1]);
+        // snprintf(msg_to_client.message, MSG_SIZE, "Você escolheu: %s \nServidor escolheu: %s\nResultado: %s!\nDeseja jogar novamente?\n1 - Sim\n0 - Não\n", attacks[client_atk], attacks[server_atk], result_str[msg_to_client.result + 1]);
         if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
         {
           fatal_error("Erro ao enviar mensagem para o cliente.\n");
         }
-        printf("Peguntando se o cliente deseja jogar novamente.\n");
+        printf("Perguntando se o cliente deseja jogar novamente.\n");
         break;
       case (MSG_END):
         snprintf(msg_to_client.message, MSG_SIZE, "Fim de jogo!\nPlacar final: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
@@ -162,25 +165,21 @@ int main(int argc, char **argv)
       }
 
       if (-1 == recv(client_sockt, &msg_from_client, sizeof(msg_from_client), 0))
-        {
-          fatal_error("Erro ao receber mensagem do cliente.");
-        }
+      {
+        fatal_error("Erro ao receber mensagem do cliente.");
+      }
 
-      if(msg_to_client.type == MSG_END) {
+      if (msg_to_client.type == MSG_END)
+      {
         break;
       }
 
-      else
-      {
-        msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
-      }
 
-      //printf("TIPO CLIENTE: %d\n", msg_from_client.type);
+      // printf("TIPO CLIENTE: %d\n", msg_from_client.type);
       switch (msg_from_client.type)
       {
       case (MSG_RESPONSE):
-        //msg_to_client.type = MSG_RESULT;
-        msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+        // msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
         srand(time(NULL));
         client_atk = msg_from_client.client_action;
         server_atk = rand() % 5;
@@ -189,23 +188,31 @@ int main(int argc, char **argv)
 
         msg_to_client.result = return_result(client_atk, server_atk);
 
-        if (msg_to_client.result == -1)
+        if (msg_to_client.type == MSG_REQUEST)
         {
-          printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
-          msg_to_client.type = MSG_REQUEST;
+          msg_to_client.type = MSG_RESULT;
+          if (msg_to_client.result == -1)
+          {
+            printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
+            msg_to_client.type = MSG_REQUEST;
+          }
+          else
+          {
+            if (msg_to_client.result == 0)
+            {
+              msg_to_client.server_wins++;
+            }
+            else if (msg_to_client.result == 1)
+            {
+              msg_to_client.client_wins++;
+            }
+            // break;
+            printf("Placar atualizado: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
+          }
         }
-        else
+        else if (msg_to_client.type == MSG_RESULT)
         {
-          if (msg_to_client.result == 0)
-          {
-            msg_to_client.server_wins++;
-          }
-          else if (msg_to_client.result == 1)
-          {
-            msg_to_client.client_wins++;
-          }
-          // break;
-          printf("Placar atualizado: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
+          msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
         }
         break;
         // msg_to_client.type = MSG_RESULT;
@@ -222,8 +229,6 @@ int main(int argc, char **argv)
           msg_to_client.type = MSG_REQUEST;
         }
         break;
-
-
       }
     }
     printf("Encerrando conexão.\n");
