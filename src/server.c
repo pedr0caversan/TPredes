@@ -68,32 +68,32 @@ int main(int argc, char **argv)
   int sockt = socket(storage.ss_family, SOCK_STREAM, 0);
   if (sockt == -1)
   {
-    fatal_error("socket");
+    fatal_error("Erro ao criar o socket.");
   }
 
   int enable = 1;
   if (0 != setsockopt(sockt, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) // permite reutilizar o endereço
   {
-    fatal_error("setsockopt");
+    fatal_error("Erro ao definir o socket como reutilizável.");
   }
 
   struct sockaddr *addr = (struct sockaddr *)(&storage);
   if (0 != bind(sockt, addr, sizeof(storage)))
   {
-    fatal_error("bind");
+    fatal_error("Erro ao associar o socket.");
   }
 
   if (0 != listen(sockt, 10))
   {
-    fatal_error("listen");
+    fatal_error("Erro ao escutar o socket.");
   }
 
   char addrstr[BUFSZ];
-  // addr_to_str(addr, addrstr, BUFSZ);
-  // printf(" %s \n", addrstr);
   connection_data server_data;
   server_data = return_connection_data(addr, addrstr, BUFSZ);
   printf("Servidor iniciado em modo IPv%d na porta %hu. Aguardando conexão...\n", server_data.version, server_data.port);
+
+  // loop para atendimento de um cliente de cada vez
   while (1)
   {
     struct sockaddr_storage cstorage;
@@ -106,31 +106,130 @@ int main(int argc, char **argv)
       fatal_error("accept");
     }
 
-    char c_addrstr[BUFSZ];
-    addr_to_str(caddr, c_addrstr, BUFSZ);
     printf("Cliente conectado. \n");
 
-   char buf[BUFSZ];
-    memset(buf, 0, BUFSZ);
-    char *msg = "Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n";
-    size_t count = send(client_sockt, msg, strlen(msg) + 1, 0);
-    printf("Apresentando as opções para o cliente.\n");
+    GameMessage msg_to_client = {0};
+    GameMessage msg_from_client = {0};
+    msg_to_client.type = MSG_REQUEST;
+    int client_atk = 0;
+    int server_atk = 0;
+    char *attacks[] = {"Nuclear Attack", "Intercept Attack", "Cyber Attack", "Drone Strike", "Bio Attack"};
+    char *result_str[] = {"Empate", "Derrota", "Vitória"};
 
-    count = recv(client_sockt, buf, BUFSZ - 1, 0);
-    srand(time(NULL));
-    int client_atk = atoi(buf); // Converte a string recebida para inteiro
-    int server_atk = rand() % 5; // Escolha aleatória do servidor entre 0 e 4
-    //printf("[msg] %s, %d bytes: %s\n", c_addrstr, (int)count, buf);
-    printf("Cliente escolheu %d.", client_atk);
-    printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
+    // loop de envios e recebimentos de mensagens
+    while (1)
+    {
+      char buf[BUFSZ];
+      memset(buf, 0, BUFSZ);
 
-    sprintf(buf, "remote endpoint: %.1000s\n", c_addrstr); // Limite de 1000 caracteres para evitar buffer overflow
-    count = send(client_sockt, buf, strlen(buf) + 1, 0);
-    if (count != strlen(buf) + 1) {
-        fatal_error("send");
+      //printf("Tipo da mensagem enviada pro cliente: %d\n", msg_to_client.type);
+      switch (msg_to_client.type)
+      {
+      case (MSG_REQUEST):
+        snprintf(msg_to_client.message, MSG_SIZE, "Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n");
+        printf("Apresentando as opções para o cliente.\n");
+        if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
+        {
+          fatal_error("Erro ao enviar mensagem para o cliente.");
+        }
+        break;
+
+      case (MSG_RESULT):
+        snprintf(msg_to_client.message, MSG_SIZE, "Você escolheu: %s \nServidor escolheu: %s\nResultado: %s!\n", attacks[client_atk], attacks[server_atk], result_str[msg_to_client.result + 1]);
+        if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
+        {
+          fatal_error("Erro ao enviar mensagem de resultado para o cliente.");
+        }
+        // msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+        break;
+      case (MSG_PLAY_AGAIN_REQUEST):
+        snprintf(msg_to_client.message, MSG_SIZE, "Deseja jogar novamente?\n1 - Sim\n0 - Não\n");
+        snprintf(msg_to_client.message, MSG_SIZE, "Você escolheu: %s \nServidor escolheu: %s\nResultado: %s!\nDeseja jogar novamente?\n1 - Sim\n0 - Não\n", attacks[client_atk], attacks[server_atk], result_str[msg_to_client.result + 1]);
+        if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
+        {
+          fatal_error("Erro ao enviar mensagem para o cliente.\n");
+        }
+        printf("Peguntando se o cliente deseja jogar novamente.\n");
+        break;
+      case (MSG_END):
+        snprintf(msg_to_client.message, MSG_SIZE, "Fim de jogo!\nPlacar final: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
+        printf("Cliente não deseja jogar novamente.\nEnviando placar final.\n");
+        if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
+        {
+          fatal_error("Erro ao enviar mensagem para o cliente.");
+        }
+        break;
+      }
+
+      if(msg_to_client.type == MSG_END) {
+        break;
+      }
+      else if (!(msg_to_client.type == MSG_RESULT))
+      {
+        if (-1 == recv(client_sockt, &msg_from_client, sizeof(msg_from_client), 0))
+        {
+          fatal_error("Erro ao receber mensagem do cliente.");
+        }
+      }
+      else
+      {
+        msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+      }
+
+      //printf("TIPO CLIENTE: %d\n", msg_from_client.type);
+      switch (msg_from_client.type)
+      {
+      case (MSG_RESPONSE):
+        // msg_to_client.type = MSG_RESULT;
+        msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+        srand(time(NULL));
+        client_atk = msg_from_client.client_action;
+        server_atk = rand() % 5;
+        printf("Cliente escolheu %d.", client_atk);
+        printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
+
+        msg_to_client.result = return_result(client_atk, server_atk);
+
+        if (msg_to_client.result == -1)
+        {
+          printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
+        }
+        else
+        {
+          if (msg_to_client.result == 0)
+          {
+            msg_to_client.server_wins++;
+          }
+          else if (msg_to_client.result == 1)
+          {
+            msg_to_client.client_wins++;
+          }
+          // break;
+          printf("Placar atualizado: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
+        }
+        break;
+        // msg_to_client.type = MSG_RESULT;
+      case (MSG_PLAY_AGAIN_RESPONSE):
+        if (msg_from_client.client_action == 0)
+        {
+          printf("Cliente optou por não jogar novamente.\n");
+          msg_to_client.type = MSG_END;
+          break;
+        }
+        else
+        {
+          printf("Cliente optou por jogar novamente.\n");
+          msg_to_client.type = MSG_REQUEST;
+        }
+        break;
+
+
+      }
     }
-     close(client_sockt);
+    printf("Encerrando conexão.\n");
+    close(client_sockt);
+    break;
   }
- 
+  printf("Cliente desconectado.\n");
   exit(EXIT_SUCCESS);
 }

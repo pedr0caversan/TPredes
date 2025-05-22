@@ -40,7 +40,7 @@ typedef struct
 // Comunica erro fatal e tipo de erro por meio de msg e encerra o programa
 void fatal_error(const char *msg)
 {
-    perror(msg);
+    printf("%s", msg);
     exit(EXIT_FAILURE);
 }
 

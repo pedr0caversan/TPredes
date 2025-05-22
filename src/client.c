@@ -9,7 +9,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-
 // Comunica erro na inserção do IP e porta do servidor, exibe mensagem de uso correto e encerra o programa
 void usage_error(char argc, char *argv[])
 {
@@ -20,7 +19,7 @@ void usage_error(char argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    
+
     // AF_INET determina IPv4 (AF_INET6 para IPv6), SOCK_STREAM indica que o socket é do tipo TCP e 0 indica que o protocolo padrão deve ser usado (TCP para SOCK_STREAM e UDP para SOCK_DGRAM)
     if (argc < 3) // port e IP
     {
@@ -28,55 +27,81 @@ int main(int argc, char *argv[])
     }
 
     struct sockaddr_storage storage; // storage para IPv4 e IPv6
-    if (0 != addr_parse(argv[1], argv[2], &storage)) {
+    if (0 != addr_parse(argv[1], argv[2], &storage))
+    {
         usage_error(argc, argv);
     }
 
-    int sockt = socket(storage.ss_family, SOCK_STREAM, 0); 
+    int sockt = socket(storage.ss_family, SOCK_STREAM, 0);
 
     if (sockt == -1)
     {
-        fatal_error("socket");
+        fatal_error("Erro ao criar o socket.");
     }
 
-    struct sockaddr *addr = (struct sockaddr *)( &storage );
-    if (0 != connect(sockt, addr, sizeof(storage))) {
-        fatal_error("connect");
+    struct sockaddr *addr = (struct sockaddr *)(&storage);
+    if (0 != connect(sockt, addr, sizeof(storage)))
+    {
+        fatal_error("Erro ao conectar ao servidor.");
     }
 
-
-    // Começo da conexão a seguir
     printf("Conectado ao servidor.\n");
 
-    char server_msg[BUFSZ];
-    memset(server_msg, 0, BUFSZ);
-    recv(sockt, server_msg, BUFSZ - 1, 0);
-    printf("%s", server_msg);
-    char buf[BUFSZ];
-    //printf("Escolha sua jogada:\n0 - Nuclear Attack\n1 - Intercept Attack\n2 - Cyber Attack\n3 - Drone Strike\n4 - Bio Attack\n");
-    fgets(buf, BUFSZ - 1, stdin);
-    size_t count = send(sockt, buf, strlen(buf) + 1, 0);
-    if (count != strlen(buf) + 1)
-    {
-        fatal_error("send");
-    }
-
-    memset(buf, 0, BUFSZ);
-    unsigned total = 0;
+    GameMessage msg_to_server = {0};
+    GameMessage msg_from_server = {0};
+    msg_to_server.type = MSG_RESPONSE;
+    // loop de recebimento e envio de mensagens
     while (1)
     {
-        count = recv(sockt, buf + total, BUFSZ - total, 0);
-        if (count == 0)
+
+        // recebe msg de qualquer tipo do servidor
+        //printf("primeiro recv\n");
+        size_t byte_count = recv(sockt, &msg_from_server, BUFSZ - 1, 0);
+        if (byte_count == -1)
         {
-            // Connection terminated.
+            fatal_error("Erro ao receber mensagem do servidor.");
+        }
+        else if (byte_count == 0)
+        {
+            printf("Servidor desconectado.\n");
             break;
         }
-        total += count;
-    }
-    close(sockt);
 
-    printf("received %u bytes\n", total);
-    puts(buf);
+        printf("%s", msg_from_server.message);
+
+        if (msg_from_server.type == MSG_PLAY_AGAIN_REQUEST || msg_from_server.type == MSG_REQUEST)
+        {
+            char buf[BUFSZ];
+            fgets(buf, BUFSZ - 1, stdin);
+            msg_to_server.client_action = atoi(buf);
+
+            if (msg_from_server.type == MSG_REQUEST) {
+                msg_to_server.type = MSG_RESPONSE;
+            }
+            else if (msg_from_server.type == MSG_PLAY_AGAIN_REQUEST)
+            {
+                msg_to_server.type = MSG_PLAY_AGAIN_RESPONSE;
+            }
+
+            // envia msg para o servidor
+            byte_count = send(sockt, &msg_to_server, sizeof(msg_to_server), 0);
+            if (byte_count == -1)
+            {
+                fatal_error("Erro ao enviar mensagem.");
+            }
+        } 
+        else
+        {
+            msg_to_server.type = MSG_RESPONSE;
+        }
+    }
+
+    // char buf[BUFSZ];
+    // memset(buf, 0, BUFSZ);
+    // unsigned total = 0;
+
+    // printf("received %u bytes\n", total);
+    // puts(buf);
 
     exit(EXIT_SUCCESS);
 }

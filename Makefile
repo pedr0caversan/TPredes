@@ -1,43 +1,47 @@
-# Diretórios
+CC = gcc
+CFLAGS = -Wall -Iinclude
 SRC_DIR = src
-INC_DIR = include
+OBJ_DIR = obj
 BIN_DIR = bin
 
-# Compilador e flags
-CC = gcc
-CFLAGS = -Wall -I$(INC_DIR)
+# Fontes
+SRCS = $(SRC_DIR)/client.c \
+       $(SRC_DIR)/server.c \
+       $(SRC_DIR)/threaded_server.c \
+       $(SRC_DIR)/common.c
 
-# Arquivos fonte
-CLIENT_SRC = $(SRC_DIR)/client.c $(SRC_DIR)/common.c
-SERVER_SRC = $(SRC_DIR)/server.c $(SRC_DIR)/common.c
-THREADED_SERVER_SRC = $(SRC_DIR)/threaded_server.c $(SRC_DIR)/common.c
+# Objetos
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 # Executáveis
-CLIENT_BIN = $(BIN_DIR)/client
-SERVER_BIN = $(BIN_DIR)/server
-THREADED_SERVER_BIN = $(BIN_DIR)/threaded_server
+TARGETS = $(BIN_DIR)/client $(BIN_DIR)/server $(BIN_DIR)/threaded_server
 
 # Regra padrão
-all: $(BIN_DIR) $(CLIENT_BIN) $(SERVER_BIN) $(THREADED_SERVER_BIN)
+all: $(TARGETS)
 
-# Criação do diretório bin se não existir
+# Compilar arquivos objeto
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c include/common.h | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# client
+$(BIN_DIR)/client: $(OBJ_DIR)/client.o $(OBJ_DIR)/common.o | $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# server
+$(BIN_DIR)/server: $(OBJ_DIR)/server.o $(OBJ_DIR)/common.o | $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# threaded_server
+$(BIN_DIR)/threaded_server: $(OBJ_DIR)/threaded_server.o $(OBJ_DIR)/common.o | $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# Criar diretórios se não existirem
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
-# Compilação
-$(CLIENT_BIN): $(CLIENT_SRC)
-	$(CC) $(CFLAGS) $^ -o $@
-
-$(SERVER_BIN): $(SERVER_SRC)
-	$(CC) $(CFLAGS) $^ -o $@
-
-$(THREADED_SERVER_BIN): $(THREADED_SERVER_SRC)
-	$(CC) $(CFLAGS) $^ -o $@
-
 # Limpeza
 clean:
-	rm -rf $(BIN_DIR)
-
-.PHONY: all clean
-
-
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
