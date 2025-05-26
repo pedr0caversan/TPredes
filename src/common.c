@@ -9,6 +9,7 @@
 
 #define MSG_SIZE 256
 #define BUFSZ 1024
+#define INVALID -1
 
 typedef enum {
 MSG_REQUEST,

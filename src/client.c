@@ -53,9 +53,8 @@ int main(int argc, char *argv[])
     // loop de recebimento e envio de mensagens
     while (1)
     {
-
         // recebe msg de qualquer tipo do servidor
-        //printf("primeiro recv\n");
+        // printf("primeiro recv\n");
         size_t byte_count = recv(sockt, &msg_from_server, BUFSZ - 1, 0);
         if (byte_count == -1)
         {
@@ -75,23 +74,26 @@ int main(int argc, char *argv[])
             fgets(buf, BUFSZ - 1, stdin);
             msg_to_server.client_action = atoi(buf);
 
-            if (msg_from_server.type == MSG_REQUEST) {
+            if (msg_from_server.type == MSG_REQUEST)
+            {
                 msg_to_server.type = MSG_RESPONSE;
             }
             else if (msg_from_server.type == MSG_PLAY_AGAIN_REQUEST)
             {
                 msg_to_server.type = MSG_PLAY_AGAIN_RESPONSE;
             }
-        } 
+        }
         else
         {
             msg_to_server.type = MSG_RESPONSE;
         }
         // envia msg para o servidor
         byte_count = send(sockt, &msg_to_server, sizeof(msg_to_server), 0);
-        if (byte_count == -1) {
+        if (byte_count == -1)
+        {
             fatal_error("Erro ao enviar mensagem para o servidor.");
         }
+        msg_to_server.client_action = -1; // reset da ação do cliente
     }
     exit(EXIT_SUCCESS);
 }

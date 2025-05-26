@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+
+
 void usage_error(int argc, char **argv)
 {
   printf("usage: %s <v4/v6> <server port>\n", argv[0]);
@@ -117,13 +119,26 @@ int main(int argc, char **argv)
     int server_atk = 0;
     char *attacks[] = {"Nuclear Attack", "Intercept Attack", "Cyber Attack", "Drone Strike", "Bio Attack"};
     char *result_str[] = {"Empate", "Derrota", "Vitória"};
-    bool empate = 0;
+    bool tie = false;
+    bool tie_exeption = false;
 
     // loop de envios e recebimentos de mensagens
     while (1)
     {
       char buf[BUFSZ];
       memset(buf, 0, BUFSZ);
+
+      if (tie_exeption)
+      {
+        msg_to_client.type = MSG_REQUEST;
+        tie_exeption = false;
+      }
+
+      if (tie)
+      {
+        tie_exeption = true;
+        tie = false;
+      }
 
       // printf("Tipo da mensagem enviada pro cliente: %d\n", msg_to_client.type);
       switch (msg_to_client.type)
@@ -174,7 +189,6 @@ int main(int argc, char **argv)
         break;
       }
 
-
       // printf("TIPO CLIENTE: %d\n", msg_from_client.type);
       switch (msg_from_client.type)
       {
@@ -183,8 +197,12 @@ int main(int argc, char **argv)
         srand(time(NULL));
         client_atk = msg_from_client.client_action;
         server_atk = rand() % 5;
+        server_atk = 3;
+        if (client_atk != INVALID)
+        {
         printf("Cliente escolheu %d.", client_atk);
         printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
+        }
 
         msg_to_client.result = return_result(client_atk, server_atk);
 
@@ -194,7 +212,8 @@ int main(int argc, char **argv)
           if (msg_to_client.result == -1)
           {
             printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
-            msg_to_client.type = MSG_REQUEST;
+            //msg_to_client.type = MSG_REQUEST;
+            tie = true;
           }
           else
           {
@@ -219,13 +238,13 @@ int main(int argc, char **argv)
       case (MSG_PLAY_AGAIN_RESPONSE):
         if (msg_from_client.client_action == 0)
         {
-          printf("Cliente optou por não jogar novamente.\n");
+          printf("Cliente deseja jogar novamente.\n");
           msg_to_client.type = MSG_END;
           break;
         }
         else
         {
-          printf("Cliente optou por jogar novamente.\n");
+          printf("Cliente não deseja jogar novamente.\n");
           msg_to_client.type = MSG_REQUEST;
         }
         break;
