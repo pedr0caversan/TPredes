@@ -36,13 +36,13 @@ int main(int argc, char *argv[])
 
     if (sockt == -1)
     {
-        fatal_error("Erro ao criar o socket.");
+        fatal_error("Erro ao criar o socket.\n");
     }
 
     struct sockaddr *addr = (struct sockaddr *)(&storage);
     if (0 != connect(sockt, addr, sizeof(storage)))
     {
-        fatal_error("Erro ao conectar ao servidor.");
+        fatal_error("Erro ao conectar ao servidor.\n");
     }
 
     printf("Conectado ao servidor.\n");
@@ -72,7 +72,8 @@ int main(int argc, char *argv[])
         {
             char buf[BUFSZ];
             fgets(buf, BUFSZ - 1, stdin);
-            msg_to_server.client_action = atoi(buf);
+            strcpy(msg_to_server.message, buf);
+            msg_to_server.client_action = atoi(buf); 
 
             if (msg_from_server.type == MSG_REQUEST)
             {

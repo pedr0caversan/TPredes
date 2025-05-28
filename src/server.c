@@ -11,12 +11,42 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-
 void usage_error(int argc, char **argv)
 {
   printf("usage: %s <v4/v6> <server port>\n", argv[0]);
   printf("example: %s v4 5151\n", argv[0]);
   exit(EXIT_FAILURE);
+}
+
+//retorna verdadeiro se a mensagem do cliente for inválida
+bool test_input_error(int msg_type, char *client_message)
+{
+  bool error = false;
+
+  if (msg_type == MSG_RESPONSE)
+  {
+    if (
+        strncmp(client_message, "0", 1) != 0 &&
+        strncmp(client_message, "1", 1) != 0 &&
+        strncmp(client_message, "2", 1) != 0 &&
+        strncmp(client_message, "3", 1) != 0 &&
+        strncmp(client_message, "4", 1) != 0)
+    {
+      //printf("não é 0-4...\n");
+      error = true;
+    }
+  }
+  else if (msg_type == MSG_PLAY_AGAIN_RESPONSE)
+  {
+    if (
+        strncmp(client_message, "0", 1) != 0 &&
+        strncmp(client_message, "1", 1) != 0)
+    {
+      error = true;
+    }
+  }
+  //error = false;
+  return error;
 }
 
 // Utilizado para transmitir os dados do cliente para a thread
@@ -26,6 +56,8 @@ struct client_data
   struct sockaddr_storage storage;
 };
 
+// retorna o resultado da partida
+// -1 para empate, 0 para derrota do cliente, 1 para vitória do cliente
 int return_result(int client_atk, int server_atk)
 {
   if (client_atk == server_atk)
@@ -99,11 +131,11 @@ int main(int argc, char **argv)
   // loop para atendimento de um cliente de cada vez
   while (1)
   {
-    struct sockaddr_storage cstorage;
-    struct sockaddr *caddr = (struct sockaddr *)&cstorage;
-    socklen_t caddrlen = sizeof(cstorage);
+    struct sockaddr_storage client_storage;
+    struct sockaddr *caddr = (struct sockaddr *)&client_storage;
+    socklen_t client_addrlen = sizeof(client_storage);
 
-    int client_sockt = accept(sockt, caddr, &caddrlen);
+    int client_sockt = accept(sockt, caddr, &client_addrlen);
     if (client_sockt == -1)
     {
       fatal_error("accept");
@@ -121,6 +153,7 @@ int main(int argc, char **argv)
     char *result_str[] = {"Empate", "Derrota", "Vitória"};
     bool tie = false;
     bool tie_exeption = false;
+    bool error = false;
 
     // loop de envios e recebimentos de mensagens
     while (1)
@@ -158,20 +191,42 @@ int main(int argc, char **argv)
         {
           fatal_error("Erro ao enviar mensagem de resultado para o cliente.");
         }
-        // msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
         break;
+
       case (MSG_PLAY_AGAIN_REQUEST):
         snprintf(msg_to_client.message, MSG_SIZE, "Deseja jogar novamente?\n1 - Sim\n0 - Não\n");
-        // snprintf(msg_to_client.message, MSG_SIZE, "Você escolheu: %s \nServidor escolheu: %s\nResultado: %s!\nDeseja jogar novamente?\n1 - Sim\n0 - Não\n", attacks[client_atk], attacks[server_atk], result_str[msg_to_client.result + 1]);
         if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
         {
           fatal_error("Erro ao enviar mensagem para o cliente.\n");
         }
         printf("Perguntando se o cliente deseja jogar novamente.\n");
         break;
+
+      case (MSG_ERROR):
+        error = true;
+        if (msg_from_client.type == MSG_RESPONSE)
+        {
+          snprintf(msg_to_client.message, MSG_SIZE, "Por favor, selecione um valor de 0 a 4.\n");
+        } else if (msg_from_client.type == MSG_PLAY_AGAIN_RESPONSE)
+        {
+          snprintf(msg_to_client.message, MSG_SIZE, "Por favor, digite 1 para jogar novamente ou 0 para encerrar.\n");
+        }
+        
+        if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
+        {
+          fatal_error("Erro ao enviar mensagem de erro para o cliente.");
+        }
+        if (msg_from_client.type == MSG_RESPONSE)
+        {
+          msg_to_client.type = MSG_REQUEST;
+        } else if (msg_from_client.type == MSG_PLAY_AGAIN_RESPONSE)
+        {
+          msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+        }
+        break;
       case (MSG_END):
         snprintf(msg_to_client.message, MSG_SIZE, "Fim de jogo!\nPlacar final: Cliente %d x %d Servidor\n", msg_to_client.client_wins, msg_to_client.server_wins);
-        printf("Cliente não deseja jogar novamente.\nEnviando placar final.\n");
+        printf("Enviando placar final.\n");
         if (-1 == send(client_sockt, &msg_to_client, sizeof(msg_to_client), 0))
         {
           fatal_error("Erro ao enviar mensagem para o cliente.");
@@ -188,20 +243,34 @@ int main(int argc, char **argv)
       {
         break;
       }
+      if (error)
+      {
+        error = false;
+        continue;
+      }
 
       // printf("TIPO CLIENTE: %d\n", msg_from_client.type);
       switch (msg_from_client.type)
       {
       case (MSG_RESPONSE):
         // msg_to_client.type = MSG_PLAY_AGAIN_REQUEST;
+        char test_msg[MSG_SIZE];
+        snprintf(test_msg, MSG_SIZE, "5");
+        //printf("MENSAGEM: %s\n", msg_from_client.message);
+        if (test_input_error(MSG_RESPONSE, msg_from_client.message))
+        {
+          printf("Erro: opção inválida de jogada.\n");
+          msg_to_client.type = MSG_ERROR;
+          continue;
+        }
         srand(time(NULL));
         client_atk = msg_from_client.client_action;
         server_atk = rand() % 5;
-        server_atk = 3;
+        msg_to_client.server_action = server_atk;
         if (client_atk != INVALID)
         {
-        printf("Cliente escolheu %d.", client_atk);
-        printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
+          printf("Cliente escolheu %d.", client_atk);
+          printf("\nServidor escolheu aleatoriamente %d. \n", server_atk);
         }
 
         msg_to_client.result = return_result(client_atk, server_atk);
@@ -212,7 +281,7 @@ int main(int argc, char **argv)
           if (msg_to_client.result == -1)
           {
             printf("Jogo empatado.\nSolicitando ao cliente mais uma escolha.\n");
-            //msg_to_client.type = MSG_REQUEST;
+            // msg_to_client.type = MSG_REQUEST;
             tie = true;
           }
           else
@@ -236,15 +305,21 @@ int main(int argc, char **argv)
         break;
         // msg_to_client.type = MSG_RESULT;
       case (MSG_PLAY_AGAIN_RESPONSE):
+        if (test_input_error(MSG_RESPONSE, msg_from_client.message))
+        {
+          printf("Erro: opção inválida de jogada.\n");
+          msg_to_client.type = MSG_ERROR;
+          continue;
+        }
         if (msg_from_client.client_action == 0)
         {
-          printf("Cliente deseja jogar novamente.\n");
+          printf("Cliente não deseja jogar novamente.\n");
           msg_to_client.type = MSG_END;
           break;
         }
         else
         {
-          printf("Cliente não deseja jogar novamente.\n");
+          printf("Cliente deseja jogar novamente.\n");
           msg_to_client.type = MSG_REQUEST;
         }
         break;
